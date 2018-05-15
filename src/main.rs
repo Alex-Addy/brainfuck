@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -21,11 +20,11 @@ struct Program {
 }
 
 impl Program {
-    fn compile(input: std::str::Chars) -> Program {
+    fn compile(input: &str) -> Vec<Command> {
         use Command::*;
 
         let mut coms = Vec::new();
-        for c in input {
+        for c in input.chars() {
             let command = match c {
                 '>' => Right,
                 '<' => Left,
@@ -40,13 +39,17 @@ impl Program {
             coms.push(command);
         }
 
+        coms
+    }
+
+    fn new(commands: Vec<Command>) -> Program {
         // build jump table
         let mut jmps = Vec::new();
         let mut table = HashMap::new();
-        for (i, c) in coms.iter().enumerate() {
+        for (i, c) in commands.iter().enumerate() {
             match c {
-                JmpFwd => jmps.push(i),
-                JmpBack => {
+                Command::JmpFwd => jmps.push(i),
+                Command::JmpBack => {
                     let start = jmps.pop().unwrap();
                     table.insert(start, i);
                     table.insert(i, start);
@@ -56,10 +59,14 @@ impl Program {
         }
 
         Program {
-            commands: coms,
+            commands: commands,
             memory: vec![0; 30000],
             jmptable: table,
         }
+    }
+
+    fn from_str(input: &str) -> Program {
+        Self::new(Self::compile(input))
     }
 
     fn run(&mut self) -> String {
@@ -74,10 +81,6 @@ impl Program {
                 Left => ptr -= 1,
                 Inc => self.memory[ptr] += 1,
                 Dec => {
-                    let v = self.memory[ptr];
-                    if v == 0 {
-                        println!("PTR: {:?}, PC: {:?}, COMS: {:#?}", ptr, pc, self.commands);
-                    }
                     self.memory[ptr] -= 1;
                 },
                 Out => out.push(char::from(self.memory[ptr])),
@@ -105,7 +108,7 @@ impl Program {
 }
 
 fn main() {
-    println!("Hello, world!");
+    print!("{}", Program::from_str("++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.").run());
 }
 
 #[cfg(test)]
@@ -116,7 +119,7 @@ mod test {
     fn hello_world() {
         let raw = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
 
-        let mut compiled = Program::compile(raw.chars());
+        let mut compiled = Program::from_str(raw);
         let out = compiled.run();
         assert_eq!(out, "Hello World!\n");
     }
@@ -158,8 +161,8 @@ mod test {
 32 >>+.                    Add 1 to Cell #5 gives us an exclamation point
 33 >++.                    And finally a newline from Cell #6";
 
-        let mut raw_compiled = Program::compile(raw.chars());
-        let mut commented_compiled = Program::compile(commented.chars());
+        let mut raw_compiled = Program::from_str(raw);
+        let mut commented_compiled = Program::from_str(commented);
         assert_eq!(raw_compiled, commented_compiled);
 
         let raw_out = raw_compiled.run();
