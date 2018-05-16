@@ -1,5 +1,7 @@
 
 use std::collections::HashMap;
+use std::io;
+use std::io::{Read, Write};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
@@ -68,8 +70,9 @@ impl Program {
         Self::new(Self::compile(input))
     }
 
-    pub fn run(&mut self) -> String {
-        let mut out = String::new();
+    pub fn run<R: Read, W: Write>(&mut self, input: &mut R, output: &mut W) -> io::Result<()> {
+        let mut input = input.bytes();
+
         let mut ptr = 0;
         let mut pc = 0;
         loop {
@@ -80,8 +83,15 @@ impl Program {
                 Command::Dec => {
                     self.memory[ptr] -= 1;
                 },
-                Command::Out => out.push(char::from(self.memory[ptr])),
-                Command::In => unimplemented!(),
+                Command::Out => {
+                    output.write(&[self.memory[ptr]])?;
+                },
+                Command::In => match input.next() {
+                    Some(res) => {
+                        self.memory[ptr] = res?;
+                    },
+                    None => {}, // EOF, do nothing for now
+                },
                 Command::JmpFwd => {
                     if self.memory[ptr] == 0 {
                         pc = self.jmptable[&pc];
@@ -100,20 +110,23 @@ impl Program {
             }
         }
 
-        out
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::io::empty;
 
     #[test]
     fn hello_world() {
         let raw = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
 
+        let mut output = Vec::new();
         let mut compiled = Program::from_str(raw);
-        let out = compiled.run();
+        compiled.run(&mut empty(), &mut output).unwrap();
+        let out: String = output.iter().map(|&b| char::from(b)).collect();
         assert_eq!(out, "Hello World!\n");
     }
 
@@ -158,9 +171,28 @@ mod test {
         let mut commented_compiled = Program::from_str(commented);
         assert_eq!(raw_compiled, commented_compiled);
 
-        let raw_out = raw_compiled.run();
-        let commented_out = commented_compiled.run();
+        let mut raw_output = Vec::new();
+        let mut commented_output = Vec::new();
+
+        raw_compiled.run(&mut empty(), &mut raw_output).unwrap();
+        commented_compiled.run(&mut empty(), &mut commented_output).unwrap();
+
+        let raw_out: String = raw_output.iter().map(|&b| char::from(b)).collect();
+        let commented_out: String = commented_output.iter().map(|&b| char::from(b)).collect();
         assert_eq!(raw_out, commented_out);
         assert_eq!(raw_compiled, commented_compiled);
+    }
+
+    #[test]
+    fn array_size_test() {
+        // Goes to cell 30000 and reports from there with a '#'
+        let raw = "++++[>++++++<-]>[>+++++>+++++++<<-]>>++++<[[>[[>>+<<-]<]>>>-]>-[>+>+<<-]>]
++++++[>+++++++<<++>-]>.<<.";
+        let mut prog = Program::from_str(raw);
+
+        let mut output = Vec::new();
+        prog.run(&mut empty(), &mut output).unwrap();
+
+        assert_eq!('#' as u8, output[0]);
     }
 }
