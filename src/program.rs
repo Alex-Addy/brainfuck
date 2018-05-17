@@ -13,6 +13,7 @@ pub enum Command {
     In,
     JmpFwd,
     JmpBack,
+    Debug,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -23,7 +24,9 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn compile(input: &str) -> Vec<Command> {
+    // compile will compile the given string as a brainfuck program
+    // if debug_pound is true then '#' will be treated as a debug command
+    pub fn compile(input: &str, debug_pound: bool) -> Vec<Command> {
         let mut coms = Vec::new();
         for c in input.chars() {
             let command = match c {
@@ -35,6 +38,7 @@ impl Program {
                 ',' => Command::In,
                 '[' => Command::JmpFwd,
                 ']' => Command::JmpBack,
+                '#' => if debug_pound { Command::Debug } else { continue },
                 _ => continue,
             };
             coms.push(command);
@@ -67,7 +71,7 @@ impl Program {
     }
 
     pub fn from_str(input: &str) -> Program {
-        Self::new(Self::compile(input))
+        Self::new(Self::compile(input, false))
     }
 
     pub fn run<R: Read, W: Write>(&mut self, input: &mut R, output: &mut W) -> io::Result<()> {
@@ -101,7 +105,8 @@ impl Program {
                     if self.memory[ptr] != 0 {
                         pc = self.jmptable[&pc];
                     }
-                }
+                },
+                Command::Debug => self.debug(ptr, pc),
             }
             pc += 1;
             
@@ -111,6 +116,20 @@ impl Program {
         }
 
         Ok(())
+    }
+
+    // print debug information
+    fn debug(&self, ptr: usize, pc: usize) {
+        let pre_com = &self.commands[pc-3..pc];
+        let post_com = &self.commands[pc+1..usize::min(pc+3, self.commands.len())];
+        let pre_mem = &self.memory[ptr-3..ptr];
+        let post_mem = &self.memory[ptr+1..usize::min(ptr+3, self.memory.len())];
+
+        println!("--------------------------");
+        println!("PC: {} | PTR: {}", pc, ptr);
+        println!("COMS: {:?} -> {:?} <- {:?}", pre_com, self.commands[pc], post_com);
+        println!("MEM: {:?} -> {:?} <- {:?}", pre_mem, self.memory[ptr], post_mem);
+        println!("--------------------------");
     }
 }
 
@@ -209,5 +228,26 @@ mod test {
         prog.run(&mut empty(), &mut output).unwrap();
 
         assert_eq!('H' as u8, output[0]);
+    }
+
+    #[test]
+    fn debug() {
+        // test that programs are compiled correctly concerning the debug flag
+        let raw_simple = "#+.";
+        let comp_simple_debug = Program::compile(raw_simple, true);
+        let comp_simple_no_debug = Program::compile(raw_simple, false);
+        let expected_simple_debug = vec![Command::Debug, Command::Inc, Command::Out];
+        let expected_simple_no_debug = vec![Command::Inc, Command::Out];
+        
+        assert_eq!(expected_simple_debug, comp_simple_debug);
+        assert_eq!(expected_simple_no_debug, comp_simple_no_debug);
+
+        // test that debug printing handles edge of array cases without crashing
+        let raw = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.#";
+        let mut prog = Program::new(Program::compile(raw, true));
+        //prog.debug(0, 0);
+        //prog.debug(30000-1, 0);
+        
+        prog.run(&mut empty(), &mut Vec::new()).unwrap();
     }
 }
