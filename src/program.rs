@@ -185,7 +185,8 @@ mod test {
 
     #[test]
     fn array_size_test() {
-        // Goes to cell 30000 and reports from there with a '#'
+        // taken from http://www.hevanet.com/cristofd/brainfuck/tests.b
+        // "Goes to cell 30000 and reports from there with a '#'"
         let raw = "++++[>++++++<-]>[>+++++>+++++++<<-]>>++++<[[>[[>>+<<-]<]>>>-]>-[>+>+<<-]>]
 +++++[>+++++++<<++>-]>.<<.";
         let mut prog = Program::from_str(raw);
@@ -194,5 +195,19 @@ mod test {
         prog.run(&mut empty(), &mut output).unwrap();
 
         assert_eq!('#' as u8, output[0]);
+    }
+
+    #[test]
+    fn obscure_tests() {
+        // taken from http://www.hevanet.com/cristofd/brainfuck/tests.b
+        // "Tests for several obscure problems. Should output an H."
+        let raw = r#"[]++++++++++[>>+>+>++++++[<<+<+++>>>-]<<<<-]
+"A*$";?@![#>>+<<]>[>>]<<<<[>++<[-]]>.>."#;
+        let mut prog = Program::from_str(raw);
+
+        let mut output = Vec::new();
+        prog.run(&mut empty(), &mut output).unwrap();
+
+        assert_eq!('H' as u8, output[0]);
     }
 }
