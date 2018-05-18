@@ -120,10 +120,20 @@ impl Program {
 
     // print debug information
     fn debug(&self, ptr: usize, pc: usize) {
-        let pre_com = &self.commands[pc-3..pc];
-        let post_com = &self.commands[pc+1..usize::min(pc+3, self.commands.len())];
-        let pre_mem = &self.memory[ptr-3..ptr];
-        let post_mem = &self.memory[ptr+1..usize::min(ptr+3, self.memory.len())];
+        let com_len = self.commands.len();
+        let mem_len = self.memory.len();
+        let pre_com = if pc > 3 {
+            &self.commands[pc-3..pc]
+        } else {
+            &self.commands[0..pc]
+        };
+        let post_com = &self.commands[usize::min(pc+1, com_len)..usize::min(pc+3, com_len)];
+        let pre_mem = if ptr > 3 {
+            &self.memory[ptr-3..ptr]
+        } else {
+            &self.memory[0..ptr]
+        };
+        let post_mem = &self.memory[usize::min(ptr+1, mem_len)..usize::min(ptr+3, mem_len)];
 
         println!("--------------------------");
         println!("PC: {} | PTR: {}", pc, ptr);
@@ -245,8 +255,8 @@ mod test {
         // test that debug printing handles edge of array cases without crashing
         let raw = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.#";
         let mut prog = Program::new(Program::compile(raw, true));
-        //prog.debug(0, 0);
-        //prog.debug(30000-1, 0);
+        prog.debug(0, 0);
+        prog.debug(30000-1, 0);
         
         prog.run(&mut empty(), &mut Vec::new()).unwrap();
     }
